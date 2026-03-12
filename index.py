@@ -205,6 +205,14 @@ class InventoryApp:
         ttk.Radiobutton(frame, text="Stock OUT", variable=self.trans_type, value="OUT").grid(row=1, column=2, sticky="w")
 
         ttk.Button(frame, text="Submit Transaction", command=self.submit_transaction).grid(row=2, column=0, columnspan=4, pady=20)
+        # REPORT BUTTON (Admin only)
+        if self.user_role in ["Admin", "Manager"]:
+            ttk.Button(
+                frame,
+                text="📊 Generate CSV Report",
+                command=self.generate_report
+            ).grid(row=3, column=0, columnspan=4, pady=10)
+
 
     def setup_user_management(self):
         frame = ttk.LabelFrame(self.tab_users, text="Add New User", padding=20)
@@ -284,15 +292,30 @@ class InventoryApp:
         sku = self.trans_sku.get()
         qty = self.trans_qty.get()
         t_type = self.trans_type.get()
-        
+
         success, msg = self.service.process_transaction(sku, t_type, qty)
+
         if success:
-            messagebox.showinfo("Success", msg)
+
+            # 🚨 STOCK EMPTY ALERT
+            if "STOCK EMPTY" in msg:
+                messagebox.showerror("Stock Empty", msg)
+
+            # ⚠️ LOW STOCK ALERT
+            elif "LOW STOCK" in msg:
+                messagebox.showwarning("Low Stock Alert", msg)
+
+            # ✅ NORMAL TRANSACTION
+            else:
+                messagebox.showinfo("Success", msg)
+
             self.refresh_table()
             self.trans_sku.delete(0, tk.END)
             self.trans_qty.delete(0, tk.END)
+
         else:
             messagebox.showerror("Error", msg)
+
 
     def refresh_users(self):
         for item in self.user_tree.get_children():
@@ -360,6 +383,20 @@ class InventoryApp:
                 messagebox.showerror("Error", msg)
         
         ttk.Button(top, text="Update Password", command=update).pack(pady=20)
+
+    def generate_report(self):
+
+        if self.user_role not in ["Admin", "Manager"]:
+            messagebox.showerror("Access Denied", "Only Admin/Manager can generate reports.")
+            return
+
+        success, msg = self.service.generate_csv_report()
+
+        if success:
+            messagebox.showinfo("Report", msg)
+        else:
+            messagebox.showerror("Report", msg)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
